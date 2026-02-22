@@ -1,0 +1,28 @@
+{
+  "name": "obsidian-easymind",
+  "version": "0.1.1",
+  "description": "Interactive mind map plugin for Obsidian powered by Mind Elixir",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "NODE_ENV=production node esbuild.config.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "mindmap",
+    "mind-elixir",
+    "ai",
+    "excalidraw"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.19.0",
+    "obsidian": "^1.4.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "mind-elixir": "^4.3.2"
+  }
+}

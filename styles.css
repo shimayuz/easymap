@@ -1,0 +1,244 @@
+/* =============================================
+   EasyMind - Obsidian Mind Map Plugin Styles
+   ============================================= */
+
+/* --- View Container --- */
+.easymind-view-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--background-primary);
+}
+
+/* --- Toolbar --- */
+.easymind-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.easymind-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.easymind-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.easymind-toolbar-btn:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.easymind-toolbar-btn:active {
+  background-color: var(--background-modifier-active-hover);
+}
+
+.easymind-toolbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.easymind-toolbar-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.easymind-toolbar-separator {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background-color: var(--background-modifier-border);
+}
+
+/* --- Mind Map Container --- */
+.easymind-mindmap-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--background-primary);
+}
+
+/* --- Mind Elixir Overrides --- */
+
+/* Root node */
+.easymind-mindmap-container me-root > me-wrapper > me-parent > t {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  font-family: var(--font-interface) !important;
+  color: var(--text-on-accent) !important;
+  background-color: var(--interactive-accent) !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Primary (depth-1) nodes */
+.easymind-mindmap-container me-main > me-wrapper > me-parent > t {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  font-family: var(--font-interface) !important;
+  color: var(--text-normal) !important;
+  background-color: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 6px !important;
+  padding: 6px 14px !important;
+}
+
+/* Sub-nodes (depth-2+) */
+.easymind-mindmap-container t {
+  font-size: 13px !important;
+  font-family: var(--font-interface) !important;
+  color: var(--text-normal) !important;
+  border-radius: 4px !important;
+  padding: 4px 10px !important;
+}
+
+/* Links (curves) */
+.easymind-mindmap-container .svg2nd path {
+  stroke: var(--text-faint) !important;
+  stroke-width: 2px !important;
+}
+
+.easymind-mindmap-container .svg2nd {
+  opacity: 0.6;
+}
+
+/* Selected node */
+.easymind-mindmap-container t.selected,
+.easymind-mindmap-container me-parent > t.selected {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(var(--interactive-accent-rgb), 0.2) !important;
+}
+
+/* Node hover */
+.easymind-mindmap-container t:hover {
+  filter: brightness(0.95);
+}
+
+/* Expand/collapse button */
+.easymind-mindmap-container .expand-btn,
+.easymind-mindmap-container me-expand-btn {
+  background-color: var(--background-modifier-hover) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  color: var(--text-muted) !important;
+  border-radius: 50% !important;
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 10px !important;
+  cursor: pointer;
+}
+
+/* Context menu */
+.easymind-mindmap-container .mind-elixir-context-menu,
+.easymind-mindmap-container .context-menu {
+  background-color: var(--background-primary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  padding: 4px 0 !important;
+}
+
+.easymind-mindmap-container .mind-elixir-context-menu li,
+.easymind-mindmap-container .context-menu li {
+  color: var(--text-normal) !important;
+  padding: 6px 16px !important;
+  font-size: 13px !important;
+  font-family: var(--font-interface) !important;
+}
+
+.easymind-mindmap-container .mind-elixir-context-menu li:hover,
+.easymind-mindmap-container .context-menu li:hover {
+  background-color: var(--background-modifier-hover) !important;
+}
+
+/* Node editing input */
+.easymind-mindmap-container input.mind-elixir-input,
+.easymind-mindmap-container div[contenteditable] {
+  font-family: var(--font-interface) !important;
+  color: var(--text-normal) !important;
+  background-color: var(--background-primary) !important;
+  border: 2px solid var(--interactive-accent) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  outline: none !important;
+}
+
+/* --- Progress Modal --- */
+.easymind-progress-modal {
+  text-align: center;
+  padding: 20px;
+}
+
+.easymind-progress-animation {
+  font-size: 18px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-family: var(--font-monospace);
+}
+
+.easymind-progress-message {
+  color: var(--text-normal);
+  margin-top: 12px;
+}
+
+/* --- Dark Theme Adjustments --- */
+.theme-dark .easymind-mindmap-container {
+  background-color: var(--background-primary);
+}
+
+.theme-dark .easymind-mindmap-container me-root > me-wrapper > me-parent > t {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.theme-dark .easymind-mindmap-container .svg2nd path {
+  stroke: var(--text-faint) !important;
+}
+
+/* --- Responsive / Mobile --- */
+.is-mobile .easymind-toolbar {
+  padding: 6px 12px;
+}
+
+.is-mobile .easymind-toolbar-btn {
+  width: 36px;
+  height: 36px;
+}
+
+/* --- Scrollbar --- */
+.easymind-mindmap-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.easymind-mindmap-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.easymind-mindmap-container::-webkit-scrollbar-thumb {
+  background-color: var(--background-modifier-border);
+  border-radius: 3px;
+}
