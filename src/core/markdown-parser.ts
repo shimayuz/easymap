@@ -78,55 +78,98 @@ export class MarkdownParser {
     return sections
   }
 
+  /**
+   * セクション配列からマインドマップツリーを構築する。
+   *
+   * ポイント:
+   * - ドキュメントの最小見出しレベルを検出し、それを「depth 1」として正規化する
+   *   (H1がなくH2始まりなら H2=depth1, H3=depth2, ...)
+   * - レベルの飛び (H2→H4 など) があっても、直近の親に吸収する
+   * - ルートノードはファイル名で、常に depth 0
+   */
   private buildTree(
     sections: readonly MarkdownSection[],
     rootTopic: string
   ): MindElixirNodeData {
-    const root: MindElixirNodeData = {
+    if (sections.length === 0) {
+      return {
+        id: 'root',
+        topic: rootTopic,
+        expanded: true,
+        children: [],
+      }
+    }
+
+    // 最小見出しレベルを検出 (H1がなければ H2 が最小 = depth 1 に対応)
+    const minLevel = sections.reduce(
+      (min, s) => Math.min(min, s.level),
+      6
+    )
+
+    // ミュータブルなツリー構築用ノード
+    interface MutableNode {
+      id: string
+      topic: string
+      expanded: boolean
+      children: MutableNode[]
+      notes?: string
+      depth: number // 構築用の深さ (root=0, 最小レベル見出し=1, ...)
+    }
+
+    const root: MutableNode = {
       id: 'root',
       topic: rootTopic,
       expanded: true,
       children: [],
+      depth: 0,
     }
 
-    if (sections.length === 0) {
-      return root
-    }
-
-    const stack: Array<{ node: MindElixirNodeData; level: number }> = [
-      { node: root, level: 0 },
-    ]
+    // スタック: 現在の祖先チェーン。常に root がスタック底にいる
+    const stack: MutableNode[] = [root]
 
     for (const section of sections) {
-      const newNode: MindElixirNodeData = {
+      // 正規化: ドキュメント内の最小レベルを depth 1 にマッピング
+      const depth = section.level - minLevel + 1
+
+      const node: MutableNode = {
         id: generateNodeId(section.heading, section.level),
         topic: section.heading,
         expanded: true,
         children: [],
         notes: section.content || undefined,
+        depth,
       }
 
-      while (stack.length > 1 && stack[stack.length - 1].level >= section.level) {
+      // スタックから、この node の親になれる位置まで巻き戻す
+      // 親 = depth が自分より小さい最も近い祖先
+      while (stack.length > 1 && stack[stack.length - 1].depth >= depth) {
         stack.pop()
       }
 
-      const parent = stack[stack.length - 1].node
-      const updatedChildren = [...(parent.children || []), newNode]
-      const updatedParent = { ...parent, children: updatedChildren }
+      // スタック先頭が親
+      const parent = stack[stack.length - 1]
+      parent.children.push(node)
 
-      if (stack.length === 1) {
-        Object.assign(root, updatedParent)
-      } else {
-        const grandParent = stack[stack.length - 2].node
-        const grandParentChildren = (grandParent.children || []).map((child) =>
-          child.id === parent.id ? updatedParent : child
-        )
-        Object.assign(grandParent, { children: grandParentChildren })
-      }
-
-      stack.push({ node: newNode, level: section.level })
+      stack.push(node)
     }
 
-    return root
+    return this.toImmutable(root)
+  }
+
+  /** 構築用ミュータブルノードを readonly な MindElixirNodeData に変換 */
+  private toImmutable(node: {
+    id: string
+    topic: string
+    expanded: boolean
+    children: Array<{ id: string; topic: string; expanded: boolean; children: unknown[]; notes?: string }>
+    notes?: string
+  }): MindElixirNodeData {
+    return {
+      id: node.id,
+      topic: node.topic,
+      expanded: node.expanded,
+      children: node.children.map((child) => this.toImmutable(child as typeof node)),
+      notes: node.notes,
+    }
   }
 }
