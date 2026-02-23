@@ -1,5 +1,7 @@
 import { requestUrl } from 'obsidian'
 import type { MindElixirNodeData, EasyMindSettings } from '../types'
+import { BULLET_ID_PREFIX } from '../core/markdown-parser'
+import { generateRandomId } from '../utils/id-generator'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
@@ -98,6 +100,60 @@ ${context ? `Context from the note: ${context.substring(0, 2000)}` : ''}`
 
     const result = await this.callApi(systemPrompt, userPrompt)
     return this.parseExpansion(result)
+  }
+
+  async summarizeBodyText(
+    paragraphText: string,
+    headingContext: string
+  ): Promise<ReadonlyArray<MindElixirNodeData>> {
+    const language = this.settings.language === 'ja' ? 'Japanese' : 'English'
+
+    const systemPrompt = `You are an expert at summarizing text into concise bullet points for mind maps.
+Given paragraph text from a document section, extract the key points as a flat list.
+Output ONLY valid JSON with no additional text.
+
+JSON format:
+{
+  "items": [
+    "Key point 1",
+    "Key point 2"
+  ]
+}
+
+Constraints:
+- Extract 2-5 key points
+- Each point max 60 characters
+- Keep the original meaning
+- Output in ${language}
+- Do not include the heading itself as a point`
+
+    const userPrompt = `Summarize the following text under the heading "${headingContext}" into key bullet points:
+
+---
+${paragraphText.substring(0, 4000)}
+---`
+
+    const result = await this.callApi(systemPrompt, userPrompt)
+    return this.parseSummaryItems(result)
+  }
+
+  private parseSummaryItems(text: string): ReadonlyArray<MindElixirNodeData> {
+    const json = this.extractJson(text)
+    if (!json) {
+      throw new Error('Failed to extract valid JSON from AI response')
+    }
+
+    const data = JSON.parse(json)
+    const items: string[] = Array.isArray(data.items) ? data.items : []
+
+    return items
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((item) => ({
+        id: BULLET_ID_PREFIX + generateRandomId().substring(3),
+        topic: item.trim(),
+        expanded: true,
+        children: [] as readonly MindElixirNodeData[],
+      }))
   }
 
   private async callApi(

@@ -1,5 +1,8 @@
 import type { MindElixirNodeData, MindElixirData, ParsedMarkdown, MarkdownSection } from '../types'
-import { generateNodeId } from '../utils/id-generator'
+import { generateNodeId, generateRandomId } from '../utils/id-generator'
+
+/** 箇条書き由来ノードの ID プレフィックス */
+export const BULLET_ID_PREFIX = 'emb_'
 
 export class MarkdownParser {
   parse(content: string): ParsedMarkdown {
@@ -81,11 +84,9 @@ export class MarkdownParser {
   /**
    * セクション配列からマインドマップツリーを構築する。
    *
-   * ポイント:
-   * - ドキュメントの最小見出しレベルを検出し、それを「depth 1」として正規化する
-   *   (H1がなくH2始まりなら H2=depth1, H3=depth2, ...)
-   * - レベルの飛び (H2→H4 など) があっても、直近の親に吸収する
-   * - ルートノードはファイル名で、常に depth 0
+   * - ドキュメントの最小見出しレベルを検出し正規化
+   * - 各セクションの本文から箇条書きを子ノードとして抽出
+   * - 残りの段落テキストは notes に保持
    */
   private buildTree(
     sections: readonly MarkdownSection[],
@@ -100,20 +101,18 @@ export class MarkdownParser {
       }
     }
 
-    // 最小見出しレベルを検出 (H1がなければ H2 が最小 = depth 1 に対応)
     const minLevel = sections.reduce(
       (min, s) => Math.min(min, s.level),
       6
     )
 
-    // ミュータブルなツリー構築用ノード
     interface MutableNode {
       id: string
       topic: string
       expanded: boolean
       children: MutableNode[]
       notes?: string
-      depth: number // 構築用の深さ (root=0, 最小レベル見出し=1, ...)
+      depth: number
     }
 
     const root: MutableNode = {
@@ -124,39 +123,114 @@ export class MarkdownParser {
       depth: 0,
     }
 
-    // スタック: 現在の祖先チェーン。常に root がスタック底にいる
     const stack: MutableNode[] = [root]
 
     for (const section of sections) {
-      // 正規化: ドキュメント内の最小レベルを depth 1 にマッピング
       const depth = section.level - minLevel + 1
+
+      // 本文から箇条書きノードと段落テキストを分離
+      const { bulletNodes, paragraphText } = this.parseSectionContent(section.content)
 
       const node: MutableNode = {
         id: generateNodeId(section.heading, section.level),
         topic: section.heading,
         expanded: true,
-        children: [],
-        notes: section.content || undefined,
+        children: bulletNodes,
+        notes: paragraphText || undefined,
         depth,
       }
 
-      // スタックから、この node の親になれる位置まで巻き戻す
-      // 親 = depth が自分より小さい最も近い祖先
       while (stack.length > 1 && stack[stack.length - 1].depth >= depth) {
         stack.pop()
       }
 
-      // スタック先頭が親
       const parent = stack[stack.length - 1]
       parent.children.push(node)
-
       stack.push(node)
     }
 
     return this.toImmutable(root)
   }
 
-  /** 構築用ミュータブルノードを readonly な MindElixirNodeData に変換 */
+  /**
+   * セクション本文を解析し、箇条書きと段落テキストに分離する。
+   *
+   * 箇条書き: `- item`, `* item`, `1. item` (ネスト対応)
+   * それ以外: 段落テキストとして notes に保持
+   */
+  private parseSectionContent(content: string): {
+    bulletNodes: Array<{
+      id: string
+      topic: string
+      expanded: boolean
+      children: Array<{ id: string; topic: string; expanded: boolean; children: never[]; depth: number }>
+      depth: number
+    }>
+    paragraphText: string
+  } {
+    if (!content) {
+      return { bulletNodes: [], paragraphText: '' }
+    }
+
+    const lines = content.split('\n')
+    const bulletNodes: Array<{
+      id: string
+      topic: string
+      expanded: boolean
+      children: Array<{ id: string; topic: string; expanded: boolean; children: never[]; depth: number }>
+      depth: number
+    }> = []
+    const paragraphLines: string[] = []
+
+    // 箇条書きパース用スタック: [{ node, indentLevel }]
+    const bulletStack: Array<{
+      node: typeof bulletNodes[0]
+      indent: number
+    }> = []
+
+    for (const line of lines) {
+      const bulletMatch = line.match(/^(\s*)(?:[-*]|\d+\.)\s+(.+)$/)
+
+      if (bulletMatch) {
+        const indent = bulletMatch[1].length
+        const text = bulletMatch[2].trim()
+
+        const bulletNode = {
+          id: BULLET_ID_PREFIX + generateRandomId().substring(3),
+          topic: text,
+          expanded: true,
+          children: [] as Array<{ id: string; topic: string; expanded: boolean; children: never[]; depth: number }>,
+          depth: 999, // 箇条書きは depth 管理しない
+        }
+
+        // インデントに基づいてネスト判定
+        while (bulletStack.length > 0 && bulletStack[bulletStack.length - 1].indent >= indent) {
+          bulletStack.pop()
+        }
+
+        if (bulletStack.length > 0) {
+          // 親の箇条書きの子に追加
+          bulletStack[bulletStack.length - 1].node.children.push(bulletNode as typeof bulletStack[0]['node']['children'][0])
+        } else {
+          // トップレベル箇条書き
+          bulletNodes.push(bulletNode)
+        }
+
+        bulletStack.push({ node: bulletNode, indent })
+      } else {
+        // 箇条書きでない行 → 段落テキスト
+        // 箇条書きのパースを中断 (段落が来たらスタックリセット)
+        if (line.trim()) {
+          bulletStack.length = 0
+        }
+        paragraphLines.push(line)
+      }
+    }
+
+    const paragraphText = paragraphLines.join('\n').trim()
+    return { bulletNodes, paragraphText }
+  }
+
   private toImmutable(node: {
     id: string
     topic: string

@@ -79,6 +79,19 @@ export default class EasyMindPlugin extends Plugin {
     })
 
     this.addCommand({
+      id: 'summarize-body-ai',
+      name: 'Summarize Body Text with AI',
+      callback: () => {
+        const file = this.app.workspace.getActiveFile()
+        if (file && file.extension === 'md') {
+          this.summarizeBodyTextWithAI(file)
+        } else {
+          new Notice('Please open a Markdown file first')
+        }
+      },
+    })
+
+    this.addCommand({
       id: 'export-excalidraw',
       name: 'Export Mind Map to Excalidraw',
       callback: () => {
@@ -186,6 +199,125 @@ export default class EasyMindPlugin extends Plugin {
     } finally {
       loadingNotice.hide()
     }
+  }
+
+  private async summarizeBodyTextWithAI(file: TFile): Promise<void> {
+    if (!this.settings.anthropicApiKey) {
+      new Notice('Please configure your Anthropic API key in EasyMind settings')
+      return
+    }
+
+    const progressModal = new LLMProgressModal(this.app)
+    progressModal.open()
+
+    try {
+      progressModal.update({
+        phase: 'generating',
+        message: 'Reading note content...',
+      })
+
+      const content = await this.app.vault.read(file)
+      const parsed = this.parser.parse(content)
+      const data = this.parser.toMindElixirData(content, file.basename)
+
+      // notes を持つノードを収集
+      const nodesWithNotes = this.collectNodesWithNotes(data.nodeData)
+
+      if (nodesWithNotes.length === 0) {
+        progressModal.update({
+          phase: 'done',
+          message: 'No body text found to summarize.',
+        })
+        setTimeout(() => progressModal.close(), 2000)
+        return
+      }
+
+      progressModal.update({
+        phase: 'generating',
+        message: `Summarizing ${nodesWithNotes.length} section(s) with AI...`,
+      })
+
+      // 各ノードの notes を AI で要約し、bullet 子ノードとして追加
+      const updatedNodeData = await this.addSummaryChildren(
+        data.nodeData,
+        nodesWithNotes
+      )
+
+      progressModal.update({
+        phase: 'parsing',
+        message: 'Writing updated structure to note...',
+      })
+
+      const newContent = this.writer.toMarkdown(updatedNodeData, parsed.frontmatter)
+      await this.app.vault.modify(file, newContent)
+
+      progressModal.update({
+        phase: 'done',
+        message: `Summarized ${nodesWithNotes.length} section(s) successfully!`,
+      })
+
+      setTimeout(() => progressModal.close(), 2000)
+    } catch (error) {
+      progressModal.update({
+        phase: 'error',
+        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      })
+      setTimeout(() => progressModal.close(), 5000)
+    }
+  }
+
+  private collectNodesWithNotes(
+    node: MindElixirNodeData
+  ): ReadonlyArray<{ readonly id: string; readonly topic: string; readonly notes: string }> {
+    const results: Array<{ readonly id: string; readonly topic: string; readonly notes: string }> = []
+
+    if (node.notes && node.notes.trim().length > 0 && node.id !== 'root') {
+      results.push({ id: node.id, topic: node.topic, notes: node.notes })
+    }
+
+    if (node.children) {
+      for (const child of node.children) {
+        results.push(...this.collectNodesWithNotes(child))
+      }
+    }
+
+    return results
+  }
+
+  private async addSummaryChildren(
+    node: MindElixirNodeData,
+    nodesWithNotes: ReadonlyArray<{ readonly id: string; readonly topic: string; readonly notes: string }>
+  ): Promise<MindElixirNodeData> {
+    const noteIds = new Set(nodesWithNotes.map((n) => n.id))
+
+    const processNode = async (
+      current: MindElixirNodeData
+    ): Promise<MindElixirNodeData> => {
+      const processedChildren: MindElixirNodeData[] = []
+      if (current.children) {
+        for (const child of current.children) {
+          processedChildren.push(await processNode(child))
+        }
+      }
+
+      if (noteIds.has(current.id) && current.notes) {
+        const summaryNodes = await this.anthropicClient.summarizeBodyText(
+          current.notes,
+          current.topic
+        )
+        return {
+          ...current,
+          children: [...processedChildren, ...summaryNodes],
+        }
+      }
+
+      return {
+        ...current,
+        children: processedChildren,
+      }
+    }
+
+    return processNode(node)
   }
 
   private async exportToExcalidraw(
