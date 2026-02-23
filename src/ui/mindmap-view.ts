@@ -1,9 +1,12 @@
-import { ItemView, WorkspaceLeaf, TFile, Notice } from 'obsidian'
+import { ItemView, WorkspaceLeaf, TFile, Notice, Menu } from 'obsidian'
 import type { MindElixirData, MindElixirNodeData, EasyMindSettings } from '../types'
-import { VIEW_TYPE_MINDMAP } from '../types'
+import { VIEW_TYPE_MINDMAP, DEFAULT_NODE_IMAGE_WIDTH, DEFAULT_NODE_IMAGE_HEIGHT } from '../types'
 import { MarkdownParser } from '../core/markdown-parser'
 import { SyncEngine } from '../core/sync-engine'
 import { MindmapToolbar } from './mindmap-toolbar'
+import { resolveNodeImages } from '../utils/vault-resource-resolver'
+import { MediaInputModal } from './media-input-modal'
+import type { MediaResult } from './media-input-modal'
 
 interface MindElixirInstance {
   init(data: MindElixirData): void
@@ -136,11 +139,16 @@ export class MindmapView extends ItemView {
       const content = await this.app.vault.read(file)
       const data = this.parser.toMindElixirData(content, file.basename)
 
+      // Vault画像URLを解決
+      const resolvedData: MindElixirData = {
+        nodeData: resolveNodeImages(data.nodeData, this.app, file),
+      }
+
       this.syncEngine?.destroy()
       const currentSettings = this.getSettings()
       this.syncEngine = new SyncEngine(this.app.vault, currentSettings)
 
-      await this.initMindElixir(data)
+      await this.initMindElixir(resolvedData)
 
       // Trigger header update by toggling pin state
       const header = (this.leaf as unknown as Record<string, unknown>)
@@ -178,6 +186,19 @@ export class MindmapView extends ItemView {
       draggable: true,
       editable: true,
       contextMenu: true,
+      contextMenuOption: {
+        focus: true,
+        extend: [
+          {
+            name: '画像を追加',
+            onclick: () => this.openMediaModal('image'),
+          },
+          {
+            name: 'リンクを追加',
+            onclick: () => this.openMediaModal('link'),
+          },
+        ],
+      },
       toolBar: false,
       nodeMenu: true,
       keypress: true,
@@ -196,6 +217,60 @@ export class MindmapView extends ItemView {
       const currentData = this.mindElixir.getData()
       this.syncEngine.onMindmapChanged(this.currentFile, currentData)
     })
+  }
+
+  private openMediaModal(type: 'image' | 'link'): void {
+    if (!this.mindElixir?.currentNode) {
+      new Notice('ノードを選択してください')
+      return
+    }
+
+    new MediaInputModal(this.app, (result) => {
+      this.applyMediaToCurrentNode(result)
+    }, type).open()
+  }
+
+  private applyMediaToCurrentNode(result: MediaResult): void {
+    if (!this.mindElixir?.currentNode) return
+
+    // Mind Elixir requires direct mutation of its internal node objects for
+    // live updates. This is an intentional exception to the immutability rule.
+    const node = this.mindElixir.currentNode as unknown as Record<string, unknown>
+
+    if (result.type === 'image') {
+      node.image = {
+        url: result.url,
+        width: DEFAULT_NODE_IMAGE_WIDTH,
+        height: DEFAULT_NODE_IMAGE_HEIGHT,
+        fit: 'contain',
+      }
+      node.imageMeta = {
+        type: result.isVaultResource ? 'vault' : 'external',
+        rawPath: result.rawPath,
+        alt: result.displayText || '',
+      }
+    } else {
+      node.hyperLink = result.url
+      node.linkMeta = result.isVaultResource
+        ? {
+            type: 'wiki' as const,
+            rawTarget: result.rawPath,
+            displayText: result.displayText,
+          }
+        : {
+            type: 'external' as const,
+            rawTarget: result.url,
+          }
+    }
+
+    // Mind Elixir のUIを更新
+    this.mindElixir?.refresh()
+
+    // 変更を sync-engine に伝播
+    if (this.currentFile && this.mindElixir && this.syncEngine) {
+      const currentData = this.mindElixir.getData()
+      this.syncEngine.onMindmapChanged(this.currentFile, currentData)
+    }
   }
 
   private async loadMindElixirLibrary(): Promise<MindElixirConstructor | null> {
@@ -220,7 +295,11 @@ export class MindmapView extends ItemView {
         file,
         content,
         (data: MindElixirData) => {
-          this.mindElixir?.refresh(data)
+          // Vault画像URLを解決してからリフレッシュ
+          const resolvedData: MindElixirData = {
+            nodeData: resolveNodeImages(data.nodeData, this.app, file),
+          }
+          this.mindElixir?.refresh(resolvedData)
         }
       )
     } catch (error) {

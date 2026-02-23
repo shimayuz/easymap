@@ -19,3 +19,7 @@ function hashCode(str: string): string {
 export function generateRandomId(): string {
   return 'em_' + Math.random().toString(36).substring(2, 11)
 }
+
+export function generateBulletNodeId(): string {
+  return 'emb_' + Math.random().toString(36).substring(2, 11)
+}

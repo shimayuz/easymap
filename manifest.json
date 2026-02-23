@@ -1,7 +1,7 @@
 {
   "id": "easymind",
   "name": "EasyMind",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "minAppVersion": "1.4.0",
   "description": "Interactive mind map view for your Markdown notes. Powered by Mind Elixir with AI-assisted structuring and Excalidraw export.",
   "author": "",

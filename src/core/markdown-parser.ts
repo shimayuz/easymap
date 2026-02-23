@@ -1,5 +1,16 @@
-import type { MindElixirNodeData, MindElixirData, ParsedMarkdown, MarkdownSection } from '../types'
-import { generateNodeId, generateRandomId } from '../utils/id-generator'
+import type {
+  MindElixirNodeData,
+  MindElixirData,
+  ParsedMarkdown,
+  MarkdownSection,
+  NodeImage,
+  LinkMeta,
+  ImageMeta,
+} from '../types'
+import { DEFAULT_NODE_IMAGE_WIDTH, DEFAULT_NODE_IMAGE_HEIGHT } from '../types'
+import { generateNodeId, generateBulletNodeId } from '../utils/id-generator'
+import { extractMedia, extractBulletMedia } from './markdown-media-extractor'
+import type { ExtractedImage, ExtractedLink } from './markdown-media-extractor'
 
 /** 箇条書き由来ノードの ID プレフィックス */
 export const BULLET_ID_PREFIX = 'emb_'
@@ -83,10 +94,6 @@ export class MarkdownParser {
 
   /**
    * セクション配列からマインドマップツリーを構築する。
-   *
-   * - ドキュメントの最小見出しレベルを検出し正規化
-   * - 各セクションの本文から箇条書きを子ノードとして抽出
-   * - 残りの段落テキストは notes に保持
    */
   private buildTree(
     sections: readonly MarkdownSection[],
@@ -106,15 +113,6 @@ export class MarkdownParser {
       6
     )
 
-    interface MutableNode {
-      id: string
-      topic: string
-      expanded: boolean
-      children: MutableNode[]
-      notes?: string
-      depth: number
-    }
-
     const root: MutableNode = {
       id: 'root',
       topic: rootTopic,
@@ -128,16 +126,19 @@ export class MarkdownParser {
     for (const section of sections) {
       const depth = section.level - minLevel + 1
 
-      // 本文から箇条書きノードと段落テキストを分離
-      const { bulletNodes, paragraphText } = this.parseSectionContent(section.content)
+      const parsed = this.parseSectionContent(section.content)
 
       const node: MutableNode = {
         id: generateNodeId(section.heading, section.level),
         topic: section.heading,
         expanded: true,
-        children: bulletNodes,
-        notes: paragraphText || undefined,
+        children: parsed.childNodes,
+        notes: parsed.paragraphText || undefined,
         depth,
+        hyperLink: parsed.hyperLink,
+        image: parsed.image,
+        linkMeta: parsed.linkMeta,
+        imageMeta: parsed.imageMeta,
       }
 
       while (stack.length > 1 && stack[stack.length - 1].depth >= depth) {
@@ -153,97 +154,193 @@ export class MarkdownParser {
   }
 
   /**
-   * セクション本文を解析し、箇条書きと段落テキストに分離する。
-   *
-   * 箇条書き: `- item`, `* item`, `1. item` (ネスト対応)
-   * それ以外: 段落テキストとして notes に保持
+   * セクション本文を解析し、画像・リンク・箇条書き・段落テキストに分離する。
    */
   private parseSectionContent(content: string): {
-    bulletNodes: Array<{
-      id: string
-      topic: string
-      expanded: boolean
-      children: Array<{ id: string; topic: string; expanded: boolean; children: never[]; depth: number }>
-      depth: number
-    }>
+    childNodes: MutableNode[]
     paragraphText: string
+    hyperLink?: string
+    image?: NodeImage
+    linkMeta?: LinkMeta
+    imageMeta?: ImageMeta
   } {
     if (!content) {
-      return { bulletNodes: [], paragraphText: '' }
+      return { childNodes: [], paragraphText: '' }
     }
 
-    const lines = content.split('\n')
-    const bulletNodes: Array<{
-      id: string
-      topic: string
-      expanded: boolean
-      children: Array<{ id: string; topic: string; expanded: boolean; children: never[]; depth: number }>
-      depth: number
-    }> = []
-    const paragraphLines: string[] = []
+    const media = extractMedia(content)
 
-    // 箇条書きパース用スタック: [{ node, indentLevel }]
-    const bulletStack: Array<{
-      node: typeof bulletNodes[0]
-      indent: number
-    }> = []
+    // セクションノード自体に設定するメディア (最初の1つ)
+    let sectionImage: NodeImage | undefined
+    let sectionImageMeta: ImageMeta | undefined
+    let sectionHyperLink: string | undefined
+    let sectionLinkMeta: LinkMeta | undefined
 
-    for (const line of lines) {
-      const bulletMatch = line.match(/^(\s*)(?:[-*]|\d+\.)\s+(.+)$/)
+    // 画像/リンクから生成する追加子ノード (2番目以降)
+    const mediaChildNodes: MutableNode[] = []
 
-      if (bulletMatch) {
-        const indent = bulletMatch[1].length
-        const text = bulletMatch[2].trim()
+    // 最初の画像をセクションノードに設定
+    if (media.images.length > 0) {
+      const first = media.images[0]
+      sectionImage = this.toNodeImage(first)
+      sectionImageMeta = { type: first.type, rawPath: first.url, alt: first.alt || undefined }
+    }
 
-        const bulletNode = {
-          id: BULLET_ID_PREFIX + generateRandomId().substring(3),
-          topic: text,
-          expanded: true,
-          children: [] as Array<{ id: string; topic: string; expanded: boolean; children: never[]; depth: number }>,
-          depth: 999, // 箇条書きは depth 管理しない
-        }
+    // 2番目以降の画像を子ノードとして生成
+    for (let i = 1; i < media.images.length; i++) {
+      mediaChildNodes.push(this.createImageNode(media.images[i]))
+    }
 
-        // インデントに基づいてネスト判定
-        while (bulletStack.length > 0 && bulletStack[bulletStack.length - 1].indent >= indent) {
-          bulletStack.pop()
-        }
-
-        if (bulletStack.length > 0) {
-          // 親の箇条書きの子に追加
-          bulletStack[bulletStack.length - 1].node.children.push(bulletNode as typeof bulletStack[0]['node']['children'][0])
-        } else {
-          // トップレベル箇条書き
-          bulletNodes.push(bulletNode)
-        }
-
-        bulletStack.push({ node: bulletNode, indent })
-      } else {
-        // 箇条書きでない行 → 段落テキスト
-        // 箇条書きのパースを中断 (段落が来たらスタックリセット)
-        if (line.trim()) {
-          bulletStack.length = 0
-        }
-        paragraphLines.push(line)
+    // 最初のリンクをセクションノードに設定
+    if (media.links.length > 0) {
+      const first = media.links[0]
+      sectionHyperLink = first.url
+      sectionLinkMeta = {
+        type: first.type,
+        rawTarget: first.rawTarget,
+        displayText: first.displayText,
       }
     }
 
-    const paragraphText = paragraphLines.join('\n').trim()
-    return { bulletNodes, paragraphText }
+    // 2番目以降のリンクを子ノードとして生成
+    for (let i = 1; i < media.links.length; i++) {
+      mediaChildNodes.push(this.createLinkNode(media.links[i]))
+    }
+
+    // 箇条書きをパース (メディア検出込み)
+    const bulletNodes = this.parseBulletLines(media.bulletLines)
+
+    // 段落テキスト
+    const paragraphText = media.paragraphLines.join('\n').trim()
+
+    return {
+      childNodes: [...mediaChildNodes, ...bulletNodes],
+      paragraphText,
+      hyperLink: sectionHyperLink,
+      image: sectionImage,
+      linkMeta: sectionLinkMeta,
+      imageMeta: sectionImageMeta,
+    }
   }
 
-  private toImmutable(node: {
-    id: string
-    topic: string
-    expanded: boolean
-    children: Array<{ id: string; topic: string; expanded: boolean; children: unknown[]; notes?: string }>
-    notes?: string
-  }): MindElixirNodeData {
+  /**
+   * 箇条書き行をパースしてノードツリーに変換する (メディア検出込み)
+   */
+  private parseBulletLines(bulletLines: readonly string[]): MutableNode[] {
+    const bulletNodes: MutableNode[] = []
+    const bulletStack: Array<{ node: MutableNode; indent: number }> = []
+
+    for (const line of bulletLines) {
+      const bulletMatch = line.match(/^(\s*)(?:[-*]|\d+\.)\s+(.+)$/)
+      if (!bulletMatch) continue
+
+      const indent = bulletMatch[1].length
+      const rawText = bulletMatch[2].trim()
+
+      const mediaResult = extractBulletMedia(rawText)
+
+      const bulletNode: MutableNode = {
+        id: generateBulletNodeId(),
+        topic: mediaResult.text,
+        expanded: true,
+        children: [],
+        depth: 999,
+        ...(mediaResult.image ? {
+          image: this.toNodeImage(mediaResult.image),
+          imageMeta: {
+            type: mediaResult.image.type,
+            rawPath: mediaResult.image.url,
+            alt: mediaResult.image.alt || undefined,
+          },
+        } : {}),
+        ...(mediaResult.link ? {
+          hyperLink: mediaResult.link.url,
+          linkMeta: {
+            type: mediaResult.link.type,
+            rawTarget: mediaResult.link.rawTarget,
+            displayText: mediaResult.link.displayText,
+          },
+        } : {}),
+      }
+
+      while (bulletStack.length > 0 && bulletStack[bulletStack.length - 1].indent >= indent) {
+        bulletStack.pop()
+      }
+
+      if (bulletStack.length > 0) {
+        bulletStack[bulletStack.length - 1].node.children.push(bulletNode)
+      } else {
+        bulletNodes.push(bulletNode)
+      }
+
+      bulletStack.push({ node: bulletNode, indent })
+    }
+
+    return bulletNodes
+  }
+
+  private toNodeImage(img: ExtractedImage): NodeImage {
     return {
+      url: img.url,
+      width: DEFAULT_NODE_IMAGE_WIDTH,
+      height: DEFAULT_NODE_IMAGE_HEIGHT,
+      fit: 'contain',
+    }
+  }
+
+  private createImageNode(img: ExtractedImage): MutableNode {
+    return {
+      id: generateBulletNodeId(),
+      topic: img.alt || img.url,
+      expanded: true,
+      children: [],
+      depth: 999,
+      image: this.toNodeImage(img),
+      imageMeta: { type: img.type, rawPath: img.url, alt: img.alt || undefined },
+    }
+  }
+
+  private createLinkNode(link: ExtractedLink): MutableNode {
+    return {
+      id: generateBulletNodeId(),
+      topic: link.text,
+      expanded: true,
+      children: [],
+      depth: 999,
+      hyperLink: link.url,
+      linkMeta: {
+        type: link.type,
+        rawTarget: link.rawTarget,
+        displayText: link.displayText,
+      },
+    }
+  }
+
+  private toImmutable(node: MutableNode): MindElixirNodeData {
+    const result: MindElixirNodeData = {
       id: node.id,
       topic: node.topic,
       expanded: node.expanded,
-      children: node.children.map((child) => this.toImmutable(child as typeof node)),
-      notes: node.notes,
+      children: node.children.map((child) => this.toImmutable(child)),
+      ...(node.notes ? { notes: node.notes } : {}),
+      ...(node.hyperLink ? { hyperLink: node.hyperLink } : {}),
+      ...(node.image ? { image: node.image } : {}),
+      ...(node.linkMeta ? { linkMeta: node.linkMeta } : {}),
+      ...(node.imageMeta ? { imageMeta: node.imageMeta } : {}),
     }
+    return result
   }
+}
+
+interface MutableNode {
+  id: string
+  topic: string
+  expanded: boolean
+  children: MutableNode[]
+  notes?: string
+  depth: number
+  hyperLink?: string
+  image?: NodeImage
+  linkMeta?: LinkMeta
+  imageMeta?: ImageMeta
 }

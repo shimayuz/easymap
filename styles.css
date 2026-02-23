@@ -228,6 +228,82 @@
   height: 36px;
 }
 
+/* --- Node Images --- */
+.easymind-mindmap-container me-tpc img {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 4px;
+  object-fit: contain;
+  margin-top: 4px;
+  display: block;
+}
+
+/* --- Node Hyperlink Icon --- */
+.easymind-mindmap-container me-tpc a.hyper-link {
+  color: var(--text-accent);
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+  margin-left: 4px;
+}
+
+.easymind-mindmap-container me-tpc a.hyper-link:hover {
+  opacity: 1;
+}
+
+/* --- API Key Security Warning --- */
+.easymind-api-key-warning {
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  border-left: 4px solid var(--text-warning);
+  background-color: rgba(var(--color-yellow-rgb), 0.1);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.easymind-api-key-warning strong {
+  color: var(--text-warning);
+}
+
+/* --- Media Input Modal --- */
+.easymind-media-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 8px;
+}
+
+.easymind-media-tab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--font-interface);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.easymind-media-tab:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.easymind-media-tab.is-active {
+  background-color: var(--background-modifier-active-hover);
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.easymind-media-form hr {
+  border: none;
+  border-top: 1px solid var(--background-modifier-border);
+  margin: 16px 0;
+}
+
 /* --- Scrollbar --- */
 .easymind-mindmap-container::-webkit-scrollbar {
   width: 6px;

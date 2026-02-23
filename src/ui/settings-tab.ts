@@ -22,6 +22,14 @@ export class EasyMindSettingTab extends PluginSettingTab {
 
     containerEl.createEl('h3', { text: 'AI Settings' })
 
+    const warningEl = containerEl.createDiv({ cls: 'easymind-api-key-warning' })
+    warningEl.createEl('strong', { text: 'Security Notice: ' })
+    warningEl.createSpan({
+      text: 'API Key is stored in this Vault\'s .obsidian/plugins/easymind/data.json. ' +
+        'If you manage this Vault with Git or share it with others, ' +
+        'make sure data.json is listed in your .gitignore to prevent key leakage.',
+    })
+
     new Setting(containerEl)
       .setName('Anthropic API Key')
       .setDesc('Your Anthropic API key for AI-powered mind map generation')

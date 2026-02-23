@@ -1,3 +1,22 @@
+export interface NodeImage {
+  readonly url: string
+  readonly width: number
+  readonly height: number
+  readonly fit?: 'fill' | 'contain' | 'cover'
+}
+
+export interface LinkMeta {
+  readonly type: 'external' | 'wiki' | 'wiki-alias'
+  readonly rawTarget: string
+  readonly displayText?: string
+}
+
+export interface ImageMeta {
+  readonly type: 'external' | 'vault'
+  readonly rawPath: string
+  readonly alt?: string
+}
+
 export interface MindElixirNodeData {
   readonly id: string
   readonly topic: string
@@ -6,6 +25,10 @@ export interface MindElixirNodeData {
   readonly direction?: number
   readonly style?: Readonly<Record<string, string>>
   readonly notes?: string
+  readonly hyperLink?: string
+  readonly image?: NodeImage
+  readonly linkMeta?: LinkMeta
+  readonly imageMeta?: ImageMeta
 }
 
 export interface MindElixirData {
@@ -37,6 +60,9 @@ export const DEFAULT_SETTINGS: EasyMindSettings = {
   nodeVerticalGap: 25,
   direction: 'right',
 }
+
+export const DEFAULT_NODE_IMAGE_WIDTH = 200
+export const DEFAULT_NODE_IMAGE_HEIGHT = 150
 
 export interface SyncState {
   readonly locked: boolean

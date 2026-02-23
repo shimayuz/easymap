@@ -37,6 +37,10 @@ export default class EasyMindPlugin extends Plugin {
 
     this.registerCommands()
     this.addSettingTab(new EasyMindSettingTab(this.app, this))
+
+    this.app.workspace.onLayoutReady(() => {
+      this.checkGitignoreSafety()
+    })
   }
 
   onunload(): void {
@@ -347,6 +351,39 @@ export default class EasyMindPlugin extends Plugin {
       new Notice(
         `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
+    }
+  }
+
+  private async checkGitignoreSafety(): Promise<void> {
+    if (!this.settings.anthropicApiKey) return
+
+    try {
+      const gitignorePath = '.gitignore'
+      const adapter = this.app.vault.adapter
+      const exists = await adapter.exists(gitignorePath)
+      if (!exists) return
+
+      const content = await adapter.read(gitignorePath)
+      const lines = content.split('\n').map((l) => l.trim())
+
+      const pluginDataProtected = lines.some((line) =>
+        line === 'data.json' ||
+        line === '.obsidian/' ||
+        line === '.obsidian/**' ||
+        line === '.obsidian/plugins/' ||
+        line === '.obsidian/plugins/**' ||
+        line === '.obsidian/plugins/easymind/data.json'
+      )
+
+      if (!pluginDataProtected) {
+        new Notice(
+          '[EasyMind] Warning: Your API key may be exposed via Git. ' +
+          'Add "data.json" to your .gitignore file.',
+          15000
+        )
+      }
+    } catch {
+      // Vault adapter errors are non-critical; skip silently
     }
   }
 
