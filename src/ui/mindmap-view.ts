@@ -223,6 +223,16 @@ export class MindmapView extends ItemView {
       `${currentSettings.fontSize}px`
     )
 
+    // Smooth movement (CSS transition toggle)
+    this.mindmapContainer.toggleClass('easymind-smooth-movement', currentSettings.smoothMovement)
+
+    // Board color (背景色カスタマイズ)
+    if (currentSettings.boardColor) {
+      this.mindmapContainer.style.setProperty('background-color', currentSettings.boardColor)
+    } else {
+      this.mindmapContainer.style.removeProperty('background-color')
+    }
+
     this.mindElixir.init(data)
 
     this.mindElixir.bus.addListener('operation', () => {

@@ -318,3 +318,24 @@
   background-color: var(--background-modifier-border);
   border-radius: 3px;
 }
+
+/* --- Smooth Movement --- */
+.easymind-smooth-movement me-main,
+.easymind-smooth-movement me-root {
+  transition: transform 0.3s ease;
+}
+
+.easymind-smooth-movement .svg2nd {
+  transition: opacity 0.3s ease;
+}
+
+/* --- Board Color Preview --- */
+.easymind-board-color-preview {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  vertical-align: middle;
+  margin-left: 8px;
+}

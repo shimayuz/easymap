@@ -55,9 +55,28 @@ export class MarkdownParser {
       lineStart: number
       lineEnd: number
     } | null = null
+    let inCodeBlock = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // コードフェンス (``` or ~~~) の開始/終了を追跡
+      if (/^(`{3,}|~{3,})/.test(line)) {
+        inCodeBlock = !inCodeBlock
+        if (currentSection) {
+          currentSection.content += (currentSection.content ? '\n' : '') + line
+        }
+        continue
+      }
+
+      // コードブロック内の行はセクションコンテンツとして扱う
+      if (inCodeBlock) {
+        if (currentSection) {
+          currentSection.content += (currentSection.content ? '\n' : '') + line
+        }
+        continue
+      }
+
       const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
 
       if (headingMatch) {

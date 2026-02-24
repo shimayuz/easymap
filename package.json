@@ -1,6 +1,6 @@
 {
   "name": "obsidian-easymind",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Interactive mind map plugin for Obsidian powered by Mind Elixir",
   "main": "main.js",
   "scripts": {

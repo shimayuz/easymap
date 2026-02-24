@@ -28,6 +28,7 @@ const EXTERNAL_LINK_RE = /^\[([^\]]+)\]\(([^)]+)\)\s*$/
 const WIKI_ALIAS_RE = /^\[\[([^\]|]+)\|([^\]]+)\]\]\s*$/
 const WIKI_LINK_RE = /^\[\[([^\]|]+)\]\]\s*$/
 const BULLET_RE = /^(\s*)(?:[-*]|\d+\.)\s+(.+)$/
+const CODE_FENCE_RE = /^(`{3,}|~{3,})/
 
 export interface BulletMediaResult {
   readonly text: string
@@ -115,8 +116,22 @@ export function extractMedia(content: string): MediaExtraction {
   const links: ExtractedLink[] = []
   const bulletLines: string[] = []
   const paragraphLines: string[] = []
+  let inCodeBlock = false
 
   for (const line of lines) {
+    // コードフェンス (``` or ~~~) の開始/終了を追跡
+    if (CODE_FENCE_RE.test(line)) {
+      inCodeBlock = !inCodeBlock
+      paragraphLines.push(line)
+      continue
+    }
+
+    // コードブロック内はすべて段落テキストとして扱う
+    if (inCodeBlock) {
+      paragraphLines.push(line)
+      continue
+    }
+
     if (BULLET_RE.test(line)) {
       bulletLines.push(line)
       continue

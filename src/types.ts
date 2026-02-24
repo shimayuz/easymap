@@ -48,6 +48,10 @@ export interface EasyMindSettings {
   readonly direction: 'right' | 'side' | 'left'
   readonly fontSize: number
   readonly dblclickFreeNode: boolean
+  readonly smoothMovement: boolean
+  readonly parseCodeBlock: boolean
+  readonly boardColor: string
+  readonly imageSaveFolder: string
 }
 
 export const DEFAULT_SETTINGS: EasyMindSettings = {
@@ -63,6 +67,10 @@ export const DEFAULT_SETTINGS: EasyMindSettings = {
   direction: 'right',
   fontSize: 16,
   dblclickFreeNode: false,
+  smoothMovement: true,
+  parseCodeBlock: true,
+  boardColor: '',
+  imageSaveFolder: '',
 }
 
 export const DEFAULT_NODE_IMAGE_WIDTH = 200

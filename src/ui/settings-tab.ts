@@ -210,7 +210,35 @@ export class EasyMindSettingTab extends PluginSettingTab {
           })
       )
 
+    new Setting(containerEl)
+      .setName('Board Color')
+      .setDesc('Mind map background color (e.g. #f0f0f0). Leave empty to use default.')
+      .addText((text) => {
+        text
+          .setPlaceholder('#ffffff')
+          .setValue(this.host.settings.boardColor)
+          .onChange(async (value) => {
+            const trimmed = value.trim()
+            this.host.settings = { ...this.host.settings, boardColor: trimmed }
+            await this.host.saveSettings()
+            this.updateColorPreview(text.inputEl, trimmed)
+          })
+        this.updateColorPreview(text.inputEl, this.host.settings.boardColor)
+      })
+
     containerEl.createEl('h3', { text: 'Interaction Settings' })
+
+    new Setting(containerEl)
+      .setName('Smooth Movement')
+      .setDesc('Enable smooth CSS transitions when dragging or reorganizing nodes')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.host.settings.smoothMovement)
+          .onChange(async (value) => {
+            this.host.settings = { ...this.host.settings, smoothMovement: value }
+            await this.host.saveSettings()
+          })
+      )
 
     new Setting(containerEl)
       .setName('Double-click to create free node')
@@ -223,5 +251,46 @@ export class EasyMindSettingTab extends PluginSettingTab {
             await this.host.saveSettings()
           })
       )
+
+    containerEl.createEl('h3', { text: 'Parser Settings' })
+
+    new Setting(containerEl)
+      .setName('Parse Code Blocks')
+      .setDesc('Preserve code blocks (``` ... ```) as note content instead of parsing them as nodes')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.host.settings.parseCodeBlock)
+          .onChange(async (value) => {
+            this.host.settings = { ...this.host.settings, parseCodeBlock: value }
+            await this.host.saveSettings()
+          })
+      )
+
+    containerEl.createEl('h3', { text: 'File Settings' })
+
+    new Setting(containerEl)
+      .setName('Image Save Folder')
+      .setDesc('Default folder path for saving images added via mind map (e.g. assets/images)')
+      .addText((text) =>
+        text
+          .setPlaceholder('assets/images')
+          .setValue(this.host.settings.imageSaveFolder)
+          .onChange(async (value) => {
+            this.host.settings = { ...this.host.settings, imageSaveFolder: value.trim() }
+            await this.host.saveSettings()
+          })
+      )
+  }
+
+  private updateColorPreview(inputEl: HTMLInputElement, color: string): void {
+    const existing = inputEl.parentElement?.querySelector('.easymind-board-color-preview')
+    if (existing) existing.remove()
+
+    if (!color || !CSS.supports('color', color)) return
+
+    const preview = document.createElement('span')
+    preview.addClass('easymind-board-color-preview')
+    preview.style.backgroundColor = color
+    inputEl.parentElement?.appendChild(preview)
   }
 }
