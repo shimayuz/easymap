@@ -156,13 +156,28 @@ export class EasyMindSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) =>
         dropdown
           .addOption('right', 'Right')
+          .addOption('left', 'Left')
           .addOption('side', 'Both Sides')
           .setValue(this.host.settings.direction)
           .onChange(async (value) => {
             this.host.settings = {
               ...this.host.settings,
-              direction: value as 'right' | 'side',
+              direction: value as 'right' | 'side' | 'left',
             }
+            await this.host.saveSettings()
+          })
+      )
+
+    new Setting(containerEl)
+      .setName('Font Size')
+      .setDesc('Base font size for mind map nodes (10-24px)')
+      .addSlider((slider) =>
+        slider
+          .setLimits(10, 24, 1)
+          .setValue(this.host.settings.fontSize)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.host.settings = { ...this.host.settings, fontSize: value }
             await this.host.saveSettings()
           })
       )
@@ -191,6 +206,20 @@ export class EasyMindSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (value) => {
             this.host.settings = { ...this.host.settings, nodeVerticalGap: value }
+            await this.host.saveSettings()
+          })
+      )
+
+    containerEl.createEl('h3', { text: 'Interaction Settings' })
+
+    new Setting(containerEl)
+      .setName('Double-click to create free node')
+      .setDesc('Double-click on blank area to create a new child node under root')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.host.settings.dblclickFreeNode)
+          .onChange(async (value) => {
+            this.host.settings = { ...this.host.settings, dblclickFreeNode: value }
             await this.host.saveSettings()
           })
       )

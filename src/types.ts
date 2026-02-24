@@ -45,7 +45,9 @@ export interface EasyMindSettings {
   readonly theme: 'auto' | 'light' | 'dark'
   readonly nodeHorizontalGap: number
   readonly nodeVerticalGap: number
-  readonly direction: 'right' | 'side'
+  readonly direction: 'right' | 'side' | 'left'
+  readonly fontSize: number
+  readonly dblclickFreeNode: boolean
 }
 
 export const DEFAULT_SETTINGS: EasyMindSettings = {
@@ -59,6 +61,8 @@ export const DEFAULT_SETTINGS: EasyMindSettings = {
   nodeHorizontalGap: 65,
   nodeVerticalGap: 25,
   direction: 'right',
+  fontSize: 16,
+  dblclickFreeNode: false,
 }
 
 export const DEFAULT_NODE_IMAGE_WIDTH = 200

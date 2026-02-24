@@ -85,7 +85,7 @@
 
 /* Root node */
 .easymind-mindmap-container me-root > me-wrapper > me-parent > t {
-  font-size: 18px !important;
+  font-size: calc(var(--easymind-font-size, 16px) * 1.125) !important;
   font-weight: 700 !important;
   font-family: var(--font-interface) !important;
   color: var(--text-on-accent) !important;
@@ -97,7 +97,7 @@
 
 /* Primary (depth-1) nodes */
 .easymind-mindmap-container me-main > me-wrapper > me-parent > t {
-  font-size: 15px !important;
+  font-size: calc(var(--easymind-font-size, 16px) * 0.9375) !important;
   font-weight: 600 !important;
   font-family: var(--font-interface) !important;
   color: var(--text-normal) !important;
@@ -109,7 +109,7 @@
 
 /* Sub-nodes (depth-2+) */
 .easymind-mindmap-container t {
-  font-size: 13px !important;
+  font-size: calc(var(--easymind-font-size, 16px) * 0.8125) !important;
   font-family: var(--font-interface) !important;
   color: var(--text-normal) !important;
   border-radius: 4px !important;

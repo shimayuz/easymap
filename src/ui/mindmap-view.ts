@@ -15,16 +15,20 @@ interface MindElixirInstance {
   destroy(): void
   toCenter(): void
   scale(factor: number): void
+  addChild(el?: unknown, node?: unknown): Promise<void>
   bus: {
     addListener(event: string, callback: (...args: unknown[]) => void): void
   }
   nodeData: MindElixirNodeData
   currentNode: MindElixirNodeData | null
   container: HTMLElement
+  map: HTMLElement
+  root: HTMLElement
 }
 
 interface MindElixirConstructor {
   new (options: Record<string, unknown>): MindElixirInstance
+  LEFT: number
   RIGHT: number
   SIDE: number
 }
@@ -176,9 +180,12 @@ export class MindmapView extends ItemView {
     if (!MindElixir) return
 
     const currentSettings = this.getSettings()
-    const direction = currentSettings.direction === 'side'
-      ? MindElixir.SIDE
-      : MindElixir.RIGHT
+    const directionMap: Record<string, number> = {
+      left: MindElixir.LEFT,
+      right: MindElixir.RIGHT,
+      side: MindElixir.SIDE,
+    }
+    const direction = directionMap[currentSettings.direction] ?? MindElixir.RIGHT
 
     this.mindElixir = new MindElixir({
       el: this.mindmapContainer,
@@ -210,6 +217,12 @@ export class MindmapView extends ItemView {
       primaryNodeVerticalGap: currentSettings.nodeVerticalGap,
     })
 
+    // フォントサイズをCSS custom propertyで適用
+    this.mindmapContainer.style.setProperty(
+      '--easymind-font-size',
+      `${currentSettings.fontSize}px`
+    )
+
     this.mindElixir.init(data)
 
     this.mindElixir.bus.addListener('operation', () => {
@@ -217,6 +230,11 @@ export class MindmapView extends ItemView {
       const currentData = this.mindElixir.getData()
       this.syncEngine.onMindmapChanged(this.currentFile, currentData)
     })
+
+    // ダブルクリックでフリーノード作成
+    if (currentSettings.dblclickFreeNode) {
+      this.registerDblclickFreeNode()
+    }
   }
 
   private openMediaModal(type: 'image' | 'link'): void {
@@ -271,6 +289,31 @@ export class MindmapView extends ItemView {
       const currentData = this.mindElixir.getData()
       this.syncEngine.onMindmapChanged(this.currentFile, currentData)
     }
+  }
+
+  private registerDblclickFreeNode(): void {
+    if (!this.mindElixir || !this.mindmapContainer) return
+
+    const handler = (e: MouseEvent) => {
+      if (!this.mindElixir) return
+
+      // クリック対象がノード要素でないことを確認 (空白エリアのみ)
+      const target = e.target as HTMLElement
+      if (target.closest('me-tpc') || target.closest('t') || target.closest('me-parent')) {
+        return
+      }
+
+      // rootノードのDOM要素を取得してaddChildを呼ぶ
+      const rootTpc = this.mindmapContainer?.querySelector('me-root me-tpc') as HTMLElement | null
+      if (!rootTpc) return
+
+      this.mindElixir.addChild(rootTpc)
+    }
+
+    this.mindmapContainer.addEventListener('dblclick', handler)
+    this.register(() => {
+      this.mindmapContainer?.removeEventListener('dblclick', handler)
+    })
   }
 
   private async loadMindElixirLibrary(): Promise<MindElixirConstructor | null> {
